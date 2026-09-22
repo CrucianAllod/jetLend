@@ -1,0 +1,310 @@
+openapi: 3.0.3
+info:
+  title: JetLend Orders API
+  version: 1.0.0
+  description: Создание заказа с необязательным процентным промокодом. Цены, категории
+    и признак исключения из акций берутся из базы данных, клиент передаёт только идентификаторы
+    и количество.
+paths:
+  /api/orders/:
+    post:
+      operationId: createOrder
+      description: |-
+        Создаёт заказ для пользователя из переданных товаров и при наличии `promo_code` применяет процентную скидку.
+
+        Промокод применяется, только если он существует и активен, не просрочен, не исчерпал общий лимит использований и ещё не применялся этим пользователем. Скидка начисляется по каждой позиции отдельно: товары, исключённые из акций, и товары вне разрешённой категории промокода получают `discount` равный `"0"`. Если ни одна позиция не подходит, заказ не создаётся.
+
+        Денежные поля выражены в рублях, `discount` — строковый коэффициент скидки: `"0.1"` означает 10 %.
+      summary: Создать заказ
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderInputRequest'
+            examples:
+              ЗаказСПромокодом:
+                value:
+                  user_id: 1
+                  goods:
+                  - good_id: 1
+                    quantity: 2
+                  promo_code: SUMMER2025
+                summary: Заказ с промокодом
+              ЗаказБезПромокода:
+                value:
+                  user_id: 1
+                  goods:
+                  - good_id: 1
+                    quantity: 2
+                summary: Заказ без промокода
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateOrderInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateOrderInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderOutput'
+              examples:
+                СозданныйЗаказ:
+                  value:
+                    user_id: 1
+                    order_id: 1
+                    goods:
+                    - good_id: 1
+                      quantity: 2
+                      price: 100
+                      discount: '0.1'
+                      total: 180
+                    price: 200
+                    discount: '0.1'
+                    total: 180
+                  summary: Созданный заказ
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderErrorResponse'
+              examples:
+                ДоменнаяОшибка:
+                  value:
+                    code: promo_code_expired
+                    detail: Срок действия промокода истёк.
+                  summary: Доменная ошибка
+                ОшибкаВалидации:
+                  value:
+                    code: invalid_request
+                    detail: Ошибка валидации запроса.
+                    errors:
+                      goods:
+                        non_field_errors:
+                        - message: Заказ должен содержать хотя бы один товар.
+                          code: empty
+                  summary: Ошибка валидации
+          description: ''
+components:
+  schemas:
+    CreateOrderInputRequest:
+      type: object
+      description: Validate and normalize the create-order request body.
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+        goods:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderGoodInputRequest'
+        promo_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+      required:
+      - goods
+      - user_id
+    ErrorResponse:
+      type: object
+      description: Describe the body of a domain or framework error for the OpenAPI
+        schema.
+      properties:
+        code:
+          allOf:
+          - $ref: '#/components/schemas/ErrorResponseCodeEnum'
+          description: |-
+            Стабильный машиночитаемый код ошибки.
+
+            * `invalid_request` - invalid_request
+            * `user_not_found` - user_not_found
+            * `good_unavailable` - good_unavailable
+            * `promo_code_not_found` - promo_code_not_found
+            * `promo_code_expired` - promo_code_expired
+            * `promo_code_usage_limit_reached` - promo_code_usage_limit_reached
+            * `promo_code_already_used` - promo_code_already_used
+            * `promo_code_not_applicable` - promo_code_not_applicable
+            * `bad_request` - bad_request
+            * `not_authenticated` - not_authenticated
+            * `permission_denied` - permission_denied
+            * `not_found` - not_found
+            * `method_not_allowed` - method_not_allowed
+            * `unsupported_media_type` - unsupported_media_type
+            * `throttled` - throttled
+            * `parse_error` - parse_error
+            * `api_error` - api_error
+        detail:
+          type: string
+          description: Человекочитаемое описание ошибки.
+      required:
+      - code
+      - detail
+    ErrorResponseCodeEnum:
+      enum:
+      - invalid_request
+      - user_not_found
+      - good_unavailable
+      - promo_code_not_found
+      - promo_code_expired
+      - promo_code_usage_limit_reached
+      - promo_code_already_used
+      - promo_code_not_applicable
+      - bad_request
+      - not_authenticated
+      - permission_denied
+      - not_found
+      - method_not_allowed
+      - unsupported_media_type
+      - throttled
+      - parse_error
+      - api_error
+      type: string
+      description: |-
+        * `invalid_request` - invalid_request
+        * `user_not_found` - user_not_found
+        * `good_unavailable` - good_unavailable
+        * `promo_code_not_found` - promo_code_not_found
+        * `promo_code_expired` - promo_code_expired
+        * `promo_code_usage_limit_reached` - promo_code_usage_limit_reached
+        * `promo_code_already_used` - promo_code_already_used
+        * `promo_code_not_applicable` - promo_code_not_applicable
+        * `bad_request` - bad_request
+        * `not_authenticated` - not_authenticated
+        * `permission_denied` - permission_denied
+        * `not_found` - not_found
+        * `method_not_allowed` - method_not_allowed
+        * `unsupported_media_type` - unsupported_media_type
+        * `throttled` - throttled
+        * `parse_error` - parse_error
+        * `api_error` - api_error
+    OrderErrorResponse:
+      oneOf:
+      - $ref: '#/components/schemas/ErrorResponse'
+      - $ref: '#/components/schemas/ValidationErrorResponse'
+    OrderGoodInputRequest:
+      type: object
+      description: Validate a product identifier and its requested quantity.
+      properties:
+        good_id:
+          type: integer
+          minimum: 1
+        quantity:
+          type: integer
+          minimum: 1
+      required:
+      - good_id
+      - quantity
+    OrderGoodOutput:
+      type: object
+      description: Serialize one calculated product line using the public API contract.
+      properties:
+        good_id:
+          type: integer
+          readOnly: true
+        quantity:
+          type: integer
+          readOnly: true
+        price:
+          type: number
+          description: Сумма в рублях. Целое число, если копеек нет, иначе число с
+            двумя знаками после запятой.
+          example: 180
+          readOnly: true
+        discount:
+          type: string
+          pattern: ^(0|1|0\.\d{1,2})$
+          description: 'Коэффициент скидки строкой: "0.1" означает 10 %, "0" — скидка
+            не применена.'
+          example: '0.1'
+          readOnly: true
+        total:
+          type: number
+          description: Сумма в рублях. Целое число, если копеек нет, иначе число с
+            двумя знаками после запятой.
+          example: 180
+          readOnly: true
+      required:
+      - discount
+      - good_id
+      - price
+      - quantity
+      - total
+    OrderOutput:
+      type: object
+      description: Serialize a created order using the public API contract.
+      properties:
+        user_id:
+          type: integer
+          readOnly: true
+        order_id:
+          type: integer
+          readOnly: true
+        goods:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderGoodOutput'
+          readOnly: true
+        price:
+          type: number
+          description: Сумма в рублях. Целое число, если копеек нет, иначе число с
+            двумя знаками после запятой.
+          example: 180
+          readOnly: true
+        discount:
+          type: string
+          pattern: ^(0|1|0\.\d{1,2})$
+          description: 'Коэффициент скидки строкой: "0.1" означает 10 %, "0" — скидка
+            не применена.'
+          example: '0.1'
+          readOnly: true
+        total:
+          type: number
+          description: Сумма в рублях. Целое число, если копеек нет, иначе число с
+            двумя знаками после запятой.
+          example: 180
+          readOnly: true
+      required:
+      - discount
+      - goods
+      - order_id
+      - price
+      - total
+      - user_id
+    ValidationErrorResponse:
+      type: object
+      properties:
+        code:
+          $ref: '#/components/schemas/ValidationErrorResponseCodeEnum'
+        detail:
+          type: string
+        errors:
+          type: object
+          additionalProperties: {}
+          description: Ошибки по полям запроса. Значение — список сообщений либо вложенный
+            объект той же структуры для составных полей, например goods.
+      required:
+      - code
+      - detail
+      - errors
+    ValidationErrorResponseCodeEnum:
+      enum:
+      - invalid_request
+      type: string
+      description: '* `invalid_request` - invalid_request'
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

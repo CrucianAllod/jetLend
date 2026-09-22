@@ -1,0 +1,38 @@
+target-version = "py314"
+line-length = 88
+extend-exclude = [
+    ".git",
+    ".venv",
+    "*/migrations/*",
+]
+
+[lint]
+select = [
+    "B",
+    "C4",
+    "DJ",
+    "E4",
+    "E7",
+    "E9",
+    "F",
+    "I",
+    "RUF",
+    "SIM",
+    "UP",
+    "W",
+]
+
+[lint.isort]
+known-first-party = ["config", "promocodes"]
+
+[lint.per-file-ignores]
+"config/settings/*.py" = ["F403", "F405", "RUF001"]
+"config/api/*.py" = ["RUF001", "RUF003"]
+"orders/serializers.py" = ["RUF001"]
+"orders/views.py" = ["RUF001"]
+"orders/services/*.py" = ["RUF001"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
