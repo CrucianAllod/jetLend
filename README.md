@@ -53,9 +53,6 @@ POST /api/orders/
   → OrderOutputSerializer
 ```
 
-Подробный анализ и принятые решения находятся в
-[`docs/implementation-plan.md`](docs/implementation-plan.md).
-
 ## Бизнес-правила промокода
 
 Промокод применяется, только если:
